@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管灌營養計算機</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; padding: 20px; background: #f4f7f6; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; margin-top: 0; }
+        select, input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .result-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .metric { background: #e8f4f8; padding: 15px; border-radius: 8px; text-align: center; }
+        .metric-title { font-size: 12px; color: #666; }
+        .metric-value { font-size: 18px; font-weight: bold; color: #007aff; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🏥 營養處方計算機</h2>
+    
+    <label>選擇配方產品</label>
+    <select id="productSelect" onchange="calculate()"></select>
+    
+    <label>每日餵食次數 (Feeds/day)</label>
+    <input type="number" id="feeds" value="4" step="1" oninput="calculate()">
+    
+    <label>每次沖洗水量 (ml)</label>
+    <input type="number" id="flush" value="50" oninput="calculate()">
+
+    <div class="result-box">
+        <div class="metric"><div class="metric-title">總熱量</div><div class="metric-value" id="resKcal">0 kcal</div></div>
+        <div class="metric"><div class="metric-title">總蛋白質</div><div class="metric-value" id="resProt">0 g</div></div>
+        <div class="metric"><div class="metric-title">總纖維</div><div class="metric-value" id="resFibre">0 g</div></div>
+        <div class="metric"><div class="metric-title">總水分</div><div class="metric-value" id="resFluid">0 ml</div></div>
+    </div>
+</div>
+
+<script>
+// 你的數據庫直接放在這裡
+const data = [
+    { name: "Compleat", serving: 250, kcal: 1060, prot: 48, fibre: 8 },
+    { name: "Diben Drink", serving: 200, kcal: 1500, prot: 75, fibre: 20 },
+    { name: "Fresubin 2kcal", serving: 200, kcal: 2000, prot: 100, fibre: 0 },
+    { name: "Fresubin Energy", serving: 200, kcal: 1500, prot: 56, fibre: 0 },
+    { name: "Glucerna (Tube Feed)", serving: 250, kcal: 1000, prot: 40, fibre: 14.4 }
+];
+
+const select = document.getElementById('productSelect');
+data.forEach(item => {
+    let opt = document.createElement('option');
+    opt.value = item.name;
+    opt.innerHTML = item.name + " (" + item.serving + "ml)";
+    select.appendChild(opt);
+});
+
+function calculate() {
+    const prod = data.find(d => d.name === select.value);
+    const feeds = parseFloat(document.getElementById('feeds').value) || 0;
+    const flush = parseFloat(document.getElementById('flush').value) || 0;
+    
+    const totalVol = prod.serving * feeds;
+    const ratio = totalVol / 1000;
+    
+    document.getElementById('resKcal').innerText = Math.round(prod.kcal * ratio) + " kcal";
+    document.getElementById('resProt').innerText = (prod.prot * ratio).toFixed(1) + " g";
+    document.getElementById('resFibre').innerText = (prod.fibre * ratio).toFixed(1) + " g";
+    document.getElementById('resFluid').innerText = Math.round(totalVol + (flush * feeds)) + " ml";
+}
+
+calculate(); // 初始計算
+</script>
+
+</body>
+</html>
