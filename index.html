@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>臨床管灌計算機 (Dietitian Pro)</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 15px; background: #f0f2f5; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+        h2 { color: #007aff; text-align: center; margin-bottom: 20px; font-size: 22px; }
+        label { font-weight: bold; display: block; margin-top: 15px; font-size: 14px; color: #555; }
+        select, input { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; font-size: 16px; background-color: #fafafa; }
+        .input-group { display: flex; gap: 10px; }
+        .input-group div { flex: 1; }
+        .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 25px; }
+        .metric { background: #f8fbff; border: 1px solid #ddecff; padding: 12px; border-radius: 10px; text-align: center; }
+        .metric-title { font-size: 12px; color: #777; margin-bottom: 4px; }
+        .metric-value { font-size: 18px; font-weight: bold; color: #007aff; }
+        .footer { text-align: center; font-size: 11px; color: #999; margin-top: 20px; }
+        .highlight { border: 2px solid #e67e22; } /* 橙色邊框提醒補品輸入 */
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🏥 管灌營養計算機</h2>
+    
+    <label>1. 選擇基礎配方</label>
+    <select id="prod" onchange="calc()"></select>
+
+    <div class="input-group">
+        <div>
+            <label>2. 此餐份量 (ml)</label>
+            <input type="number" id="vol" value="250" oninput="calc()">
+        </div>
+        <div>
+            <label>3. 沖洗水量 (ml)</label>
+            <input type="number" id="flush" value="50" oninput="calc()">
+        </div>
+    </div>
+
+    <label style="color: #e67e22;">4. 添加 Beneprotein (g)</label>
+    <input type="number" id="bene_g" value="0" step="1" placeholder="輸入公克數" oninput="calc()" class="highlight">
+    <div style="font-size: 11px; color: #e67e22; margin-top: 4px;">* 註：1 scoop = 7g</div>
+
+    <div class="result-grid">
+        <div class="metric"><div class="metric-title">總熱量 (kcal)</div><div class="metric-value" id="resKcal">0</div></div>
+        <div class="metric"><div class="metric-title">蛋白質 (g)</div><div class="metric-value" id="resProt">0</div></div>
+        <div class="metric"><div class="metric-title">碳水 (g)</div><div class="metric-value" id="resCho">0</div></div>
+        <div class="metric"><div class="metric-title">脂肪 (g)</div><div class="metric-value" id="resFat">0</div></div>
+        <div class="metric"><div class="metric-title">鈉 Na (mg)</div><div class="metric-value" id="resNa">0</div></div>
+        <div class="metric"><div class="metric-title">鉀 K (mg)</div><div class="metric-value" id="resK">0</div></div>
+        <div class="metric"><div class="metric-title">磷 PO4 (mg)</div><div class="metric-value" id="resPo4">0</div></div>
+        <div class="metric"><div class="metric-title">總水分 (ml)</div><div class="metric-value" id="resFluid">0</div></div>
+    </div>
+    
+    <div class="footer">本工具計算結果包含配方與 Beneprotein 合計</div>
+</div>
+
+<script>
+const db = [
+    { n: "Compleat", kcal: 1060, cho: 128, prot: 48, fat: 40, na: 1000, k: 1560, po4: 840, fib: 8 },
+    { n: "Diben Drink (Vanilla)", kcal: 1500, cho: 131, prot: 75, fat: 70, na: 650, k: 1300, po4: 950, fib: 20 },
+    { n: "Fresubin 2kcal Drink", kcal: 2000, cho: 225, prot: 100, fat: 78, na: 600, k: 1600, po4: 1200, fib: 0 },
+    { n: "Fresubin Energy Drink", kcal: 1500, cho: 188, prot: 56, fat: 58, na: 800, k: 1350, po4: 800, fib: 0 },
+    { n: "Fresubin Energy Fibre Drink", kcal: 1500, cho: 178, prot: 56, fat: 58, na: 800, k: 1350, po4: 800, fib: 20 },
+    { n: "Fresubin Energy Fibre (Closed)", kcal: 1500, cho: 180, prot: 56, fat: 58, na: 1000, k: 2070, po4: 530, fib: 15 },
+    { n: "Fresbuin Original", kcal: 1000, cho: 138, prot: 38, fat: 34, na: 750, k: 1250, po4: 470, fib: 0 },
+    { n: "Glucerna (Tube Feed)", kcal: 1000, cho: 80, prot: 40, fat: 56, na: 932, k: 1560, po4: 720, fib: 14.4 },
+    { n: "Isocal HN", kcal: 1050, cho: 135, prot: 44, fat: 37, na: 1000, k: 1200, po4: 750, fib: 0 },
+    { n: "Isosource 1.2HN", kcal: 1200, cho: 157, prot: 54, fat: 40, na: 1090, k: 1600, po4: 590, fib: 0 },
+    { n: "Isosource 1.5Cal", kcal: 1510, cho: 167, prot: 65, fat: 64, na: 1000, k: 1670, po4: 700, fib: 10 },
+    { n: "Jevity", kcal: 1060, cho: 152, prot: 44, fat: 36, na: 740, k: 1240, po4: 760, fib: 14 },
+    { n: "Nepro HP", kcal: 1823, cho: 147, prot: 81, fat: 98, na: 700, k: 1059, po4: 718, fib: 12.6 },
+    { n: "Nepro LP", kcal: 1823, cho: 185, prot: 45, fat: 97, na: 800, k: 1141, po4: 650, fib: 12.6 },
+    { n: "Osmolite HN", kcal: 1060, cho: 141, prot: 44, fat: 36, na: 770, k: 1320, po4: 760, fib: 0 },
+    { n: "Peptamen with Prebio", kcal: 1000, cho: 124, prot: 40, fat: 40, na: 480, k: 1600, po4: 700, fib: 4 },
+    { n: "Pulmocare", kcal: 1498, cho: 105, prot: 62.4, fat: 93.2, na: 1308, k: 1962, po4: 1055, fib: 0 },
+    { n: "Resource 2.0", kcal: 2000, cho: 214, prot: 90, fat: 87, na: 1100, k: 1900, po4: 1750, fib: 0 },
+    { n: "Resource Diabetic", kcal: 1040, cho: 84, prot: 60, fat: 51, na: 1030, k: 1180, po4: 880, fib: 19 },
+    { n: "Ultracal", kcal: 1010, cho: 130, prot: 44, fat: 35, na: 1000, k: 1150, po4: 800, fib: 16 },
+    { n: "Vivonex Plus", kcal: 1000, cho: 190, prot: 40, fat: 10, na: 670, k: 1000, po4: 570, fib: 0 }
+];
+
+// Beneprotein 每 7g 的營養值
+const bene_base = { g: 7, kcal: 25, prot: 6, na: 15 };
+
+const sel = document.getElementById('prod');
+db.forEach(p => {
+    let o = document.createElement('option');
+    o.value = p.n; o.innerHTML = p.n;
+    sel.appendChild(o);
+});
+
+function calc() {
+    const p = db.find(x => x.n === sel.value);
+    const vol = parseFloat(document.getElementById('vol').value) || 0;
+    const flush = parseFloat(document.getElementById('flush').value) || 0;
+    const g = parseFloat(document.getElementById('bene_g').value) || 0;
+    
+    const r = vol / 1000;
+    const bene_r = g / bene_base.g; // 計算公克數對應的比例
+    
+    // 計算總值 (配方量 + Beneprotein 按克換算量)
+    const totalKcal = (p.kcal * r) + (bene_base.kcal * bene_r);
+    const totalProt = (p.prot * r) + (bene_base.prot * bene_r);
+    const totalNa = (p.na * r) + (bene_base.na * bene_r);
+    
+    document.getElementById('resKcal').innerText = Math.round(totalKcal);
+    document.getElementById('resProt').innerText = totalProt.toFixed(1);
+    document.getElementById('resCho').innerText = (p.cho * r).toFixed(1);
+    document.getElementById('resFat').innerText = (p.fat * r).toFixed(1);
+    document.getElementById('resNa').innerText = Math.round(totalNa);
+    document.getElementById('resK').innerText = Math.round(p.k * r);
+    document.getElementById('resPo4').innerText = Math.round(p.po4 * r);
+    document.getElementById('resFluid').innerText = Math.round(vol + flush);
+}
+calc();
+</script>
+</body>
+</html>
