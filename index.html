@@ -8,7 +8,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="TF Calc">
-    
     <link rel="apple-touch-icon" href="./IMG_3272.png">
 
     <script>
@@ -38,6 +37,7 @@
         .footer { text-align: center; font-size: 11px; color: #999; margin-top: 20px; }
         .highlight { border: 2px solid #e67e22; }
         .strength-input { border: 2px solid #28a745; }
+        #icu-warning { color: #dc3545; font-size: 11px; margin-top: 4px; display: none; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -50,8 +50,8 @@
 
     <div class="input-row">
         <div>
-            <label>2. Volume per feed (ml)</label>
-            <input type="number" id="vol" value="250" oninput="calc()">
+            <label>2. Vol. per feed (ml)</label>
+            <input type="number" id="vol" value="250" oninput="updateActualDefault(); calc();">
         </div>
         <div>
             <label>3. Strength (e.g. 0.5)</label>
@@ -73,8 +73,12 @@
     <label style="color: #e67e22;">6. Add Beneprotein (g)</label>
     <input type="number" id="bene_g" value="0" step="1" oninput="calc()" class="highlight">
 
+    <label>7. Actual vol. per feed (for ICU)</label>
+    <input type="number" id="actual_vol" value="250" oninput="calc()">
+    <div id="icu-warning">⚠️ Cannot exceed prepared volume!</div>
+
     <div class="result-section">
-        <div class="section-title">🍽️ Per feed</div>
+        <div class="section-title">🍽️ Per feed (Administered)</div>
         <div class="result-grid">
             <div class="metric"><div class="metric-title">Energy (kcal)</div><div class="metric-value" id="sKcal">0</div></div>
             <div class="metric"><div class="metric-title">CHO (g)</div><div class="metric-value" id="sCho">0</div></div>
@@ -98,7 +102,7 @@
         </div>
     </div>
     
-    <div class="footer">Calculations: (Formula x Strength) + Beneprotein</div>
+    <div class="footer">(c) Patrick Luk 2026</div>
 </div>
 
 <script>
@@ -135,6 +139,11 @@ db.forEach(p => {
     sel.appendChild(o);
 });
 
+function updateActualDefault() {
+    const vol = document.getElementById('vol').value;
+    document.getElementById('actual_vol').value = vol;
+}
+
 function calc() {
     const p = db.find(x => x.n === sel.value);
     const vol = parseFloat(document.getElementById('vol').value) || 0;
@@ -142,29 +151,45 @@ function calc() {
     const freq = parseFloat(document.getElementById('freq').value) || 0;
     const flush = parseFloat(document.getElementById('flush').value) || 0;
     const g = parseFloat(document.getElementById('bene_g').value) || 0;
+    let actualVolInput = parseFloat(document.getElementById('actual_vol').value) || 0;
+
+    // Warning logic
+    const warn = document.getElementById('icu-warning');
+    if (actualVolInput > vol) {
+        warn.style.display = 'block';
+        actualVolInput = vol; // Revert calculation logic to cap at prepared volume
+    } else {
+        warn.style.display = 'none';
+    }
+
+    // Ratio of administration (How much of the prepared feed actually enters the patient)
+    const adminRatio = vol > 0 ? (actualVolInput / vol) : 0;
     
-    const r = (vol / 1000) * strength;
+    // Total prepared nutrients (Apply strength to base formula)
+    const rPrepared = (vol / 1000) * strength;
     const bene_r = g / bene_base.g;
     
-    const sKcal = (p.kcal * r) + (bene_base.kcal * bene_r);
-    const sCho = (p.cho * r);
-    const sProt = (p.prot * r) + (bene_base.prot * bene_r);
-    const sFat = (p.fat * r);
+    // Nutrients delivered based on Actual Vol
+    const sKcal = ((p.kcal * rPrepared) + (bene_base.kcal * bene_r)) * adminRatio;
+    const sCho = (p.cho * rPrepared) * adminRatio;
+    const sProt = ((p.prot * rPrepared) + (bene_base.prot * bene_r)) * adminRatio;
+    const sFat = (p.fat * rPrepared) * adminRatio;
 
     document.getElementById('sKcal').innerText = Math.round(sKcal);
     document.getElementById('sCho').innerText = sCho.toFixed(1);
     document.getElementById('sProt').innerText = sProt.toFixed(1);
     document.getElementById('sFat').innerText = sFat.toFixed(1);
 
+    // Daily Total Delivered
     document.getElementById('dKcal').innerText = Math.round(sKcal * freq);
     document.getElementById('dCho').innerText = (sCho * freq).toFixed(1);
     document.getElementById('dProt').innerText = (sProt * freq).toFixed(1);
     document.getElementById('dFat').innerText = (sFat * freq).toFixed(1);
-    document.getElementById('dNa').innerText = Math.round(((p.na * r) + (bene_base.na * bene_r)) * freq);
-    document.getElementById('dK').innerText = Math.round(p.k * r * freq);
-    document.getElementById('dPo4').innerText = Math.round(p.po4 * r * freq);
-    document.getElementById('dCa').innerText = Math.round(p.ca * r * freq);
-    document.getElementById('dFluid').innerText = Math.round((vol + flush) * freq);
+    document.getElementById('dNa').innerText = Math.round((((p.na * rPrepared) + (bene_base.na * bene_r)) * adminRatio) * freq);
+    document.getElementById('dK').innerText = Math.round((p.k * rPrepared * adminRatio) * freq);
+    document.getElementById('dPo4').innerText = Math.round((p.po4 * rPrepared * adminRatio) * freq);
+    document.getElementById('dCa').innerText = Math.round((p.ca * rPrepared * adminRatio) * freq);
+    document.getElementById('dFluid').innerText = Math.round((actualVolInput + flush) * freq);
 }
 calc();
 </script>
