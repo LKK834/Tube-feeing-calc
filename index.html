@@ -78,9 +78,10 @@
     <div id="icu-warning">⚠️ Cannot exceed prepared volume!</div>
 
     <div class="result-section">
-        <div class="section-title">🍽️ Per feed (Administered)</div>
+        <div class="section-title">🍽️ Per feed</div>
         <div class="result-grid">
             <div class="metric"><div class="metric-title">Energy (kcal)</div><div class="metric-value" id="sKcal">0</div></div>
+            <div class="metric"><div class="metric-title">kcal/ml</div><div class="metric-value" id="sKcalMl" style="color: #007aff;">0</div></div>
             <div class="metric"><div class="metric-title">CHO (g)</div><div class="metric-value" id="sCho">0</div></div>
             <div class="metric"><div class="metric-title">Protein (g)</div><div class="metric-value" id="sProt">0</div></div>
             <div class="metric"><div class="metric-title">Fat (g)</div><div class="metric-value" id="sFat">0</div></div>
@@ -102,7 +103,7 @@
         </div>
     </div>
     
-    <div class="footer">(c) Patrick Luk 2026</div>
+    <div class="footer">© Patrick Luk 2026</div>
 </div>
 
 <script>
@@ -153,34 +154,32 @@ function calc() {
     const g = parseFloat(document.getElementById('bene_g').value) || 0;
     let actualVolInput = parseFloat(document.getElementById('actual_vol').value) || 0;
 
-    // Warning logic
     const warn = document.getElementById('icu-warning');
     if (actualVolInput > vol) {
         warn.style.display = 'block';
-        actualVolInput = vol; // Revert calculation logic to cap at prepared volume
+        actualVolInput = vol;
     } else {
         warn.style.display = 'none';
     }
 
-    // Ratio of administration (How much of the prepared feed actually enters the patient)
     const adminRatio = vol > 0 ? (actualVolInput / vol) : 0;
-    
-    // Total prepared nutrients (Apply strength to base formula)
     const rPrepared = (vol / 1000) * strength;
     const bene_r = g / bene_base.g;
     
-    // Nutrients delivered based on Actual Vol
     const sKcal = ((p.kcal * rPrepared) + (bene_base.kcal * bene_r)) * adminRatio;
     const sCho = (p.cho * rPrepared) * adminRatio;
     const sProt = ((p.prot * rPrepared) + (bene_base.prot * bene_r)) * adminRatio;
     const sFat = (p.fat * rPrepared) * adminRatio;
+    
+    // New kcal/ml calculation
+    const kcalMl = actualVolInput > 0 ? (sKcal / actualVolInput) : 0;
 
     document.getElementById('sKcal').innerText = Math.round(sKcal);
+    document.getElementById('sKcalMl').innerText = kcalMl.toFixed(2);
     document.getElementById('sCho').innerText = sCho.toFixed(1);
     document.getElementById('sProt').innerText = sProt.toFixed(1);
     document.getElementById('sFat').innerText = sFat.toFixed(1);
 
-    // Daily Total Delivered
     document.getElementById('dKcal').innerText = Math.round(sKcal * freq);
     document.getElementById('dCho').innerText = (sCho * freq).toFixed(1);
     document.getElementById('dProt').innerText = (sProt * freq).toFixed(1);
